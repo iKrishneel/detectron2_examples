@@ -1,0 +1,24 @@
+
+*~
+__pycache__/
+*.egg-info/
+*.egg
+eggs/
+*.swp
+
+# Mac
+.DS_Store
+
+# vscode
+.vscode/settings.json
+
+# mypy
+.mypy_cache/
+
+# pytest
+.pytest_cache/
+.coverage
+
+*.ipynb_checkpoints
+
+logs/

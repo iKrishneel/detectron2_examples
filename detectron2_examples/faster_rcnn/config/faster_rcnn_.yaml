@@ -1,0 +1,13 @@
+_BASE_: "./base_rcnn.yaml"
+MODEL:
+  WEIGHTS: ""
+  MASK_ON: False
+  LOAD_PROPOSALS: False
+  RESNETS:
+    DEPTH: 50
+  PROPOSAL_GENERATOR:
+    NAME: "PrecomputedProposals"
+DATALOADER:
+  NUM_WORKERS: 2
+DATASETS:
+  TRAIN: ("car196", )
