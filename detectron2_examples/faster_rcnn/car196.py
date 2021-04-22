@@ -38,9 +38,8 @@ class Car196(object):
     def __call__(self, index: int = None) -> List[Dict]:
         dataset = []
         for index in range(len(self.image_paths)):
-            x1, x2, y1, y2, labels, fn = self.annotations[index]
+            x1, y1, x2, y2, labels, fn = self.annotations[index]
             bboxes = np.column_stack([x1, y1, x2, y2]).astype(np.float32)
-
             labels = labels[0]
             annotations = [
                 {

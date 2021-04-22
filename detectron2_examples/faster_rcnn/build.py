@@ -91,5 +91,10 @@ if __name__ == '__main__':
     read_all_dataset_dicts(cfg.DATASETS.TRAIN)
 
     t = Trainer(cfg)
-    import IPython
-    IPython.embed()
+    d = t.build_train_loader(cfg)
+    for x in d.dataset:
+        print(x)
+        break
+    
+    # import IPython
+    # IPython.embed()
