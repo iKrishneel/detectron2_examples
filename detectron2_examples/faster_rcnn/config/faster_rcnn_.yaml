@@ -1,12 +1,17 @@
 _BASE_: "./base_rcnn.yaml"
+
 MODEL:
   WEIGHTS: ""
   MASK_ON: False
   LOAD_PROPOSALS: False
   RESNETS:
     DEPTH: 50
+  RETINANET:
+    NUM_CLASSES: &num_classes 1
+  ROI_HEADS:
+    NUM_CLASSES: *num_classes
   PROPOSAL_GENERATOR:
-    NAME: "PrecomputedProposals"
+    NAME: "RPN"
 DATALOADER:
   NUM_WORKERS: 2
 DATASETS:

@@ -5,10 +5,7 @@ from torchvision import transforms as T
 
 
 class Dataloader(Dataset):
-
-    def __init__(
-            self, data_source, transforms: list = None, **kwargs: dict
-    ):
+    def __init__(self, data_source, transforms: list = None, **kwargs: dict):
         super(Dataloader, self).__init__()
 
         if transforms is not None:
@@ -22,13 +19,13 @@ class Dataloader(Dataset):
 
     def __len__(self):
         return len(self.data_source)
-    
-    
+
+
 if __name__ == '__main__':
 
     import sys
     from car196 import Car196
-    
+
     path = sys.argv[1]
     c = Car196(root=path)
     d = Dataloader(data_source=c).__getitem__(20)
