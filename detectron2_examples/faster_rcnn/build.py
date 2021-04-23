@@ -18,13 +18,16 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.solver import build_lr_scheduler as build_d2_lr_scheduler
 from detectron2.utils.events import EventStorage
 
-
 from detectron2_examples.faster_rcnn import Dataloader, DatasetMapper
 from detectron2_examples.faster_rcnn.car196 import Car196
 
 
-def register_dataset(dataset_root: str, dataset_name: str):
-    DatasetCatalog.register(dataset_name, Car196(root=dataset_root))
+def register_dataset(
+        dataset_root: str, dataset_name: str, data_type: str = 'train'
+):
+    DatasetCatalog.register(
+        dataset_name, Car196(root=dataset_root, data_type=data_type)
+    )
     MetadataCatalog.get(dataset_name).set(
         thing_classes=[
             "car",
@@ -36,10 +39,13 @@ def register_dataset(dataset_root: str, dataset_name: str):
 
 
 def register_datasets(
-    dataset_roots: Collection[str], dataset_names: Collection[str]
+        dataset_roots: Collection[str], dataset_names: Collection[str],
+        data_type: str = 'train'
 ):
     for dataset_root, dataset_name in zip(dataset_roots, dataset_names):
-        register_dataset(dataset_root, dataset_name)
+        register_dataset(
+            dataset_root, dataset_name, data_type=data_type
+        )
 
 
 def read_all_dataset_dicts(dataset_names: Collection[str]):
@@ -77,14 +83,15 @@ def add_faster_rcnn_config(cfg, args):
     cfg.INPUT.ROTATION_ANGLES = 10
     cfg.OUTPUT_DIR = args.output_dir
 
-    if args.weights:
+    try:
         cfg.MODEL.WEIGHTS = args.weights
+    except AttributeError:
+        pass
 
 
-def setup(args):
+def setup(args, ):
     cfg = get_cfg()
     cfg.merge_from_file(args.config_file)
-    # cfg.merge_from_file(args.opts)
     add_faster_rcnn_config(cfg, args)
     cfg.freeze()
     default_setup(cfg, args)

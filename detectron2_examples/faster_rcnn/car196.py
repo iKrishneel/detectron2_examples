@@ -8,7 +8,8 @@ import numpy as np
 from typing import List, Dict, Tuple
 
 import scipy.io as sio
-from PIL import Image
+# from PIL import Image
+import cv2 as cv
 
 
 @dataclass
@@ -35,12 +36,18 @@ class Car196(object):
         ]
 
         assert len(self.image_paths) == len(self.annotations)
+        self.dataset = None
 
     def __call__(self, index: int = None) -> List[Dict]:
 
-        dataset = []
+        self.dataset = []
         for index in range(len(self.image_paths)):
-            x1, y1, x2, y2, labels, fn = self.annotations[index]
+            try:
+                x1, y1, x2, y2, labels, fn = self.annotations[index]
+            except ValueError:
+                x1, y1, x2, y2, fn = self.annotations[index]
+                labels = [[0]]
+                
             bboxes = np.column_stack([x1, y1, x2, y2]).astype(np.float32)
             labels = labels[0]
             annotations = [
@@ -58,9 +65,17 @@ class Car196(object):
                 height=800,
                 width=800,
             )
-            dataset.append(data)
-        return dataset
+            self.dataset.append(data)
+        return self.dataset
 
+    def get(self, index):
+        # assert self.dataset and index < self.dataset
+        dataset_dict = self.dataset[index]
+
+        # image = Image.open(dataset_dict['file_name'])
+        image = cv.imread(dataset_dict['file_name'], cv.IMREAD_ANYCOLOR)
+        return image, dataset_dict
+    
     def __len__(self):
         return len(self.image_paths)
 

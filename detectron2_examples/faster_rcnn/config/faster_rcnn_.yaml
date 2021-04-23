@@ -16,3 +16,4 @@ DATALOADER:
   NUM_WORKERS: 2
 DATASETS:
   TRAIN: ("car196", )
+  TEST: ("car196_test", )

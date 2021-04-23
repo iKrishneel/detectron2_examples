@@ -4,6 +4,14 @@ from torch.utils.data import Dataset
 from torchvision import transforms as T
 
 
+def default_transforms() -> T.Compose:
+    return T.Compose(
+        [
+            T.ToTensor(),
+        ]
+    )
+
+
 class Dataloader(Dataset):
     def __init__(self, data_source, transforms: list = None, **kwargs: dict):
         super(Dataloader, self).__init__()
@@ -13,9 +21,13 @@ class Dataloader(Dataset):
         self.data_source = data_source
         self.transforms = transforms
 
+        self._is_test = kwargs.get('is_test', False)
+
     def __getitem__(self, index: int):
-        data = self.data_source(index)
-        return data if self.transforms is None else self.transforms(data)
+        image, target = self.data_source.get(index)
+        if self._is_test:
+            return default_transforms()(image), target
+        return (image, target) if self.transforms is None else self.transforms(image), target
 
     def __len__(self):
         return len(self.data_source)
