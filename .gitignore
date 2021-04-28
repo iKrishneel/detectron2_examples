@@ -22,3 +22,4 @@ eggs/
 *.ipynb_checkpoints
 
 logs/
+output/
