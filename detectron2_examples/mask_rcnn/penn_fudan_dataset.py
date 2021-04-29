@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 from PIL import Image
+import cv2 as cv
 
 
 @dataclass
@@ -20,7 +21,7 @@ class PennFudanDataset(object):
     masks = None
 
     def __post_init__(self):
-        
+
         self.images = self.read_content('PNGImages')
         self.masks = self.read_content("PedMasks")
         assert len(self.images) == len(self.masks)
@@ -52,10 +53,18 @@ class PennFudanDataset(object):
                 # image_id=int(self.images[index].split(os.sep)[-1].split('.')[0][8:]),
                 image_id=index,
                 height=800,
-                width=800
+                width=800,
             )
             self.dataset.append(data)
         return self.dataset
+
+    def get(self, index):
+        # assert self.dataset and index < self.dataset
+        dataset_dict = self.dataset[index]
+
+        # image = Image.open(dataset_dict['file_name'])
+        image = cv.imread(dataset_dict['file_name'], cv.IMREAD_ANYCOLOR)
+        return image, dataset_dict
 
     def __getitem__(self, idx: int):
         im_path = os.path.join(self.root, "PNGImages", self.images[idx])

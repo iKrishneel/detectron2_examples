@@ -18,7 +18,7 @@ class DatasetMapper(object):
 
     cfg: CN = None
     is_train: bool = True
-    
+
     def __post_init__(self):
         assert self.cfg
         self._augmentation = self.build_augmentation()
@@ -27,8 +27,7 @@ class DatasetMapper(object):
         dataset_dict = deepcopy(dataset_dict)
 
         image = dutils.read_image(
-            dataset_dict.get('file_name'),
-            format=self.cfg.INPUT.FORMAT
+            dataset_dict.get('file_name'), format=self.cfg.INPUT.FORMAT
         )
         mask = dutils.read_image(
             dataset_dict.pop('sem_seg_file_name'),
@@ -38,20 +37,24 @@ class DatasetMapper(object):
 
         obj_ids = np.unique(mask)[1:]
         masks = mask == obj_ids[:, None, None]
-        
+
         annotations = []
         for i in range(len(obj_ids)):
             pos = np.where(masks[i])
             box = (
-                np.min(pos[1]), np.min(pos[0]),
-                np.max(pos[1]), np.max(pos[0])
+                np.min(pos[1]),
+                np.min(pos[0]),
+                np.max(pos[1]),
+                np.max(pos[0]),
             )
             annotations.append(
                 {
                     'bbox': box,
                     'bbox_mode': 0,
                     'category_id': 0,
-                    'segmentation': encode(np.array(mask, dtype=np.uint8, order='F')),
+                    'segmentation': encode(
+                        np.array(mask, dtype=np.uint8, order='F')
+                    ),
                     # 'segmentation': encode(np.asarray(mask[:, :, None], order='F'))
                 }
             )
@@ -62,7 +65,7 @@ class DatasetMapper(object):
                 mask=mask,
                 # boxes=boxes
             )
-        
+
         aug_input = T.AugInput(image, sem_seg=mask)
         transforms = aug_input.apply_augmentations(self._augmentation)
         image = torch.from_numpy(
@@ -81,17 +84,15 @@ class DatasetMapper(object):
             annos, image.shape[1:], mask_format=self.cfg.INPUT.MASK_FORMAT
         )
         # instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-        
+
         dataset_dict['image'] = image
         dataset_dict['sem_seg'] = mask
         # dataset_dict['instances'] = instances[instances.gt_boxes.nonempty()]
         dataset_dict['instances'] = dutils.filter_empty_instances(instances)
         return dataset_dict
-            
+
     def build_augmentation(self):
-        result = dutils.build_augmentation(
-            self.cfg, is_train=self.is_train
-        )
+        result = dutils.build_augmentation(self.cfg, is_train=self.is_train)
         if self.is_train:
             pass
         return result
@@ -105,7 +106,7 @@ if __name__ == '__main__':
 
     cfg = get_cfg()
     cfg.INPUT.MASK_FORMAT = 'bitmask'
-    
+
     p = PennFudanDataset(sys.argv[1])
     d = DatasetMapper(cfg, is_train=True)
 
@@ -114,4 +115,3 @@ if __name__ == '__main__':
     x = d(s)
 
     # print(x)
-    

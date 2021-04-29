@@ -23,7 +23,7 @@ from detectron2_examples.faster_rcnn.car196 import Car196
 
 
 def register_dataset(
-        dataset_root: str, dataset_name: str, data_type: str = 'train'
+    dataset_root: str, dataset_name: str, data_type: str = 'train'
 ):
     DatasetCatalog.register(
         dataset_name, Car196(root=dataset_root, data_type=data_type)
@@ -39,13 +39,12 @@ def register_dataset(
 
 
 def register_datasets(
-        dataset_roots: Collection[str], dataset_names: Collection[str],
-        data_type: str = 'train'
+    dataset_roots: Collection[str],
+    dataset_names: Collection[str],
+    data_type: str = 'train',
 ):
     for dataset_root, dataset_name in zip(dataset_roots, dataset_names):
-        register_dataset(
-            dataset_root, dataset_name, data_type=data_type
-        )
+        register_dataset(dataset_root, dataset_name, data_type=data_type)
 
 
 def read_all_dataset_dicts(dataset_names: Collection[str]):
@@ -89,7 +88,9 @@ def add_faster_rcnn_config(cfg, args):
         pass
 
 
-def setup(args, ):
+def setup(
+    args,
+):
     cfg = get_cfg()
     cfg.merge_from_file(args.config_file)
     add_faster_rcnn_config(cfg, args)

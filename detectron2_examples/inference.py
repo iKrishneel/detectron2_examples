@@ -8,24 +8,33 @@ import matplotlib.pyplot as plt
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2_examples.faster_rcnn import setup
 
+# from detectron2_examples.faster_rcnn.car196 import Car196 as Dataset
+from detectron2_examples.mask_rcnn.penn_fudan_dataset import (
+    PennFudanDataset as Dataset,
+)
+
 
 def main(args=None):
 
-    from car196 import Car196
+    # from car196 import Car196
 
-    car196 = Car196(args.root, data_type='test')
-    car196()
+    # dataset = Dataset(args.root, data_type='test')
+    dataset = Dataset(args.root, is_train=False)
+    dataset()
     # loader = Dataloader(car196, is_test=True)
 
     cfg = setup(args=args)
     predictor = DefaultPredictor(cfg)
 
-    for index in range(len(car196)):
-        index = 200
-        image, target = car196.get(index)
+    for index in range(len(dataset)):
+        index = 15
+        image, target = dataset.get(index)
         r = predictor(image)
 
         try:
+
+            print(r)
+
             instances = r['instances'].to('cpu').get_fields()
             bboxes = instances['pred_boxes'].tensor.numpy()
             scores = instances['scores'].numpy()
@@ -45,9 +54,6 @@ def main(args=None):
             print("Nothing found: ", index, e)
 
         break
-
-    # import IPython
-    # IPython.embed()
 
 
 if __name__ == '__main__':

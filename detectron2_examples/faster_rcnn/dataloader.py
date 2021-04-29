@@ -27,7 +27,9 @@ class Dataloader(Dataset):
         image, target = self.data_source.get(index)
         if self._is_test:
             return default_transforms()(image), target
-        return (image, target) if self.transforms is None else self.transforms(image), target
+        return (image, target) if self.transforms is None else self.transforms(
+            image
+        ), target
 
     def __len__(self):
         return len(self.data_source)
