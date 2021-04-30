@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 
-from detectron2.config import CfgNode as CN, configurable
+from detectron2.config import CfgNode as CN
 from detectron2.data import transforms as T
 from detectron2.data import detection_utils as dutils
 
@@ -55,15 +55,13 @@ class DatasetMapper(object):
                     'segmentation': encode(
                         np.array(mask, dtype=np.uint8, order='F')
                     ),
-                    # 'segmentation': encode(np.asarray(mask[:, :, None], order='F'))
                 }
             )
 
         if not self.is_train:
             return dict(
                 image=image,
-                mask=mask,
-                # boxes=boxes
+                annotations=annotations
             )
 
         aug_input = T.AugInput(image, sem_seg=mask)
@@ -114,4 +112,5 @@ if __name__ == '__main__':
     print(s)
     x = d(s)
 
+    print(cfg)
     # print(x)

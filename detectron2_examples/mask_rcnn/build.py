@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
-from dataclasses import dataclass
+import time
 import argparse
+import logging
+from dataclasses import dataclass
 from typing import Collection
 
+import torch
 from torch.optim import Optimizer
 
 from detectron2.config import CfgNode, get_cfg
@@ -16,8 +19,12 @@ from detectron2.engine import (
 from detectron2.data import detection_utils, DatasetCatalog, MetadataCatalog
 from detectron2.data.build import build_detection_train_loader
 from detectron2.solver import build_lr_scheduler as build_d2_lr_scheduler
+from detectron2.engine.defaults import AMPTrainer
 
 from detectron2_examples.mask_rcnn import PennFudanDataset, DatasetMapper
+
+
+logger = logging.getLogger(__name__)
 
 
 def register_dataset(
@@ -40,6 +47,45 @@ def register_datasets(
         register_dataset(dataset_root, dataset_name, is_train=is_train)
 
 
+class AccumGradAMPTrainer(AMPTrainer):
+
+    def run_step(self):
+        cls_name = self.__class__.__name__
+        
+        assert (
+            self.model.training,
+            f'[{cls_name}] model was changed to eval mode!'
+        )
+        assert (
+            torch.cuda.is_available(),
+            f'[{cls_name}] CUDA is required for AMP Training'
+        )
+
+        from torch.cuda.amp import autocast
+
+        start = time.perf_counter()
+        data = next(self._data_loader_iter)
+        data_time = time.perf_counter() - start
+
+        with autocast():
+            loss_dict = self.model(data)
+            if isinstance(loss_dict, torch.Tensor):
+                losses = loss_dict
+                loss_dict = {
+                    'total_loss': loss_dict
+                }
+            else:
+                losses = sum(loss_dict.values())
+
+        self.optimizer.zero_grad()
+        self.grad_scaler.scale(losses).backward()
+
+        self._write_metrics(loss_dict, data_time)
+
+        self.grad_scaler.step(self.optimizer)
+        self.grad_scaler.update()
+
+
 @dataclass
 class Trainer(DefaultTrainer):
 
@@ -50,6 +96,16 @@ class Trainer(DefaultTrainer):
         assert self.cfg
         super(Trainer, self).__init__(self.cfg)
 
+        self._trainer = AccumGradAMPTrainer(
+            self.model,
+            self.data_loader,
+            self.optimizer
+        )
+
+    def run_step(self):
+        self._trainer.iter = self.iter
+        self._trainer.run_step()
+        
     @classmethod
     def build_train_loader(cls, cfg: CfgNode, mapper=None):
         augmentations = cls.build_augmentation(cfg, True)
