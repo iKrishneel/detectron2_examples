@@ -3,11 +3,13 @@
 import time
 import argparse
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from typing import Collection
 
 import torch
 from torch.optim import Optimizer
+from torch.cuda.amp import autocast
 
 from detectron2.config import CfgNode, get_cfg
 from detectron2.engine import (
@@ -49,6 +51,12 @@ def register_datasets(
 
 class AccumGradAMPTrainer(AMPTrainer):
 
+    def __init__(self, accumulate: int = 1, *args, **kwargs):
+        super(AccumGradAMPTrainer, self).__init__(*args, **kwargs)
+
+        assert accumulate > 0, f'Accumulate must be >= 1 {accumulate}'
+        self._accumulate = accumulate
+
     def run_step(self):
         cls_name = self.__class__.__name__
         
@@ -61,12 +69,26 @@ class AccumGradAMPTrainer(AMPTrainer):
             f'[{cls_name}] CUDA is required for AMP Training'
         )
 
-        from torch.cuda.amp import autocast
-
         start = time.perf_counter()
-        data = next(self._data_loader_iter)
         data_time = time.perf_counter() - start
+        
+        loss_dicts = {}
+        self.optimizer.zero_grad()
 
+        for index in range(self._accumulate):
+            data = next(self._data_loader_iter)
+            loss_dict = self._run_one_step(data=data)
+            if index == 0:
+                loss_dicts = Counter(loss_dict)
+                continue
+            loss_dicts += Counter(loss_dict)
+
+        self._write_metrics(loss_dicts, data_time)
+        
+        self.grad_scaler.step(self.optimizer)
+        self.grad_scaler.update()
+
+    def _run_one_step(self, data) -> dict:
         with autocast():
             loss_dict = self.model(data)
             if isinstance(loss_dict, torch.Tensor):
@@ -77,13 +99,8 @@ class AccumGradAMPTrainer(AMPTrainer):
             else:
                 losses = sum(loss_dict.values())
 
-        self.optimizer.zero_grad()
         self.grad_scaler.scale(losses).backward()
-
-        self._write_metrics(loss_dict, data_time)
-
-        self.grad_scaler.step(self.optimizer)
-        self.grad_scaler.update()
+        return loss_dict
 
 
 @dataclass
@@ -97,9 +114,10 @@ class Trainer(DefaultTrainer):
         super(Trainer, self).__init__(self.cfg)
 
         self._trainer = AccumGradAMPTrainer(
-            self.model,
-            self.data_loader,
-            self.optimizer
+            accumulate=5,
+            model=self.model,
+            data_loader=self.data_loader,
+            optimizer=self.optimizer
         )
 
     def run_step(self):
