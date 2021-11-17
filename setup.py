@@ -22,6 +22,8 @@ install_requires = [
     'torchvision',
     'tqdm',
     'scipy',
+    'labelme',
+    'pycocotools'
 ]
 
 setup(

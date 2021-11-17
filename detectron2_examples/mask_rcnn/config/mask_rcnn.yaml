@@ -1,23 +1,50 @@
-_BASE_: "./base_rcnn.yaml"
-
-INPUT:
-  MASK_FORMAT: "bitmask"
 MODEL:
-  WEIGHTS: ""
-  MASK_ON: True
-  LOAD_PROPOSALS: False
+  META_ARCHITECTURE: "GeneralizedRCNN"
+  BACKBONE:
+    NAME: "build_resnet_fpn_backbone"
+    FREEZE_AT: 2
   RESNETS:
     DEPTH: 50
-  RETINANET:
-    NUM_CLASSES: &num_classes 1
+    OUT_FEATURES: ["res2", "res3", "res4", "res5"]
+  FPN:
+    IN_FEATURES: ["res2", "res3", "res4", "res5"]
+  ANCHOR_GENERATOR:
+    SIZES: [[32], [64], [128], [256], [512]]  # One size for each in feature map
+    ASPECT_RATIOS: [[0.5, 1.0, 2.0]]  # Three aspect ratios (same for all in feature maps)
+  RPN:
+    IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
+    PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
+    PRE_NMS_TOPK_TEST: 2000  # Per FPN level
+    POST_NMS_TOPK_TRAIN: 1000
+    POST_NMS_TOPK_TEST: 1000
   ROI_HEADS:
-    NUM_CLASSES: *num_classes
-  PROPOSAL_GENERATOR:
-    NAME: "RPN"
-  SEM_SEG_HEAD:
-    NUM_CLASSES: *num_classes
-DATALOADER:
-  NUM_WORKERS: 2
+    NAME: "StandardROIHeads"
+    IN_FEATURES: ["p2", "p3", "p4", "p5"]
+    NUM_CLASSES: 1
+  ROI_BOX_HEAD:
+    NAME: "FastRCNNConvFCHead"
+    NUM_FC: 2
+    POOLER_RESOLUTION: 7
+  ROI_MASK_HEAD:
+    NAME: "MaskRCNNConvUpsampleHead"
+    NUM_CONV: 4
+    POOLER_RESOLUTION: 14
+  WEIGHTS: "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+  MASK_ON: True
 DATASETS:
-  TRAIN: ("penn_fudan", )
-  # TEST: ("penn_fudan_test", )
+  TRAIN: ("broccoli",)
+SOLVER:
+  IMS_PER_BATCH: 3
+  BASE_LR: 0.002
+  STEPS: (60000, 80000)
+  MAX_ITER: 10000
+  WARMUP_ITERS: 100
+  CHECKPOINT_PERIOD: 2000
+INPUT:
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+  MASK_FORMAT: "bitmask"
+  CROP:
+    ENABLED: True
+    SIZE: [0.6, 0.7]
+    TYPE: "relative_range"
+VERSION: 2

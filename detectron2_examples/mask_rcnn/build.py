@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
+import os
 import time
-import argparse
 import logging
 from collections import Counter
 from dataclasses import dataclass
@@ -18,25 +18,29 @@ from detectron2.engine import (
     default_setup,
     launch,
 )
-from detectron2.data import detection_utils, DatasetCatalog, MetadataCatalog
+from detectron2.data import (
+    detection_utils,
+    DatasetCatalog,
+    MetadataCatalog,
+    DatasetMapper
+)
 from detectron2.data.build import build_detection_train_loader
 from detectron2.solver import build_lr_scheduler as build_d2_lr_scheduler
 from detectron2.engine.defaults import AMPTrainer
 
-from detectron2_examples.mask_rcnn import PennFudanDataset, DatasetMapper
+from detectron2.data import transforms as T
+from detectron2.data.datasets import register_coco_instances
 
 
-logger = logging.getLogger(__name__)
-
-
+"""
 def register_dataset(
     dataset_root: str, dataset_name: str, is_train: bool = True
 ):
     DatasetCatalog.register(
-        dataset_name, PennFudanDataset(root=dataset_root, is_train=is_train)
+        dataset_name, LabelMeDataset(root=dataset_root, is_train=is_train)
     )
     MetadataCatalog.get(dataset_name).set(
-        thing_classes=['person'], thing_color=[(0, 255, 0)]
+        thing_classes=['broccoli'], thing_color=[(0, 255, 0)]
     )
 
 
@@ -47,6 +51,7 @@ def register_datasets(
 ):
     for dataset_root, dataset_name in zip(dataset_roots, dataset_names):
         register_dataset(dataset_root, dataset_name, is_train=is_train)
+"""
 
 
 class AccumGradAMPTrainer(AMPTrainer):
@@ -59,7 +64,7 @@ class AccumGradAMPTrainer(AMPTrainer):
 
     def run_step(self):
         cls_name = self.__class__.__name__
-        
+
         assert (
             self.model.training,
             f'[{cls_name}] model was changed to eval mode!'
@@ -71,7 +76,7 @@ class AccumGradAMPTrainer(AMPTrainer):
 
         start = time.perf_counter()
         data_time = time.perf_counter() - start
-        
+
         loss_dicts = {}
         self.optimizer.zero_grad()
 
@@ -84,7 +89,7 @@ class AccumGradAMPTrainer(AMPTrainer):
             loss_dicts += Counter(loss_dict)
 
         self._write_metrics(loss_dicts, data_time)
-        
+
         self.grad_scaler.step(self.optimizer)
         self.grad_scaler.update()
 
@@ -113,44 +118,56 @@ class Trainer(DefaultTrainer):
         assert self.cfg
         super(Trainer, self).__init__(self.cfg)
 
+        """
         self._trainer = AccumGradAMPTrainer(
             accumulate=5,
             model=self.model,
             data_loader=self.data_loader,
             optimizer=self.optimizer
         )
+        """
 
+    """
     def run_step(self):
         self._trainer.iter = self.iter
         self._trainer.run_step()
-        
-    @classmethod
-    def build_train_loader(cls, cfg: CfgNode, mapper=None):
-        augmentations = cls.build_augmentation(cfg, True)
-        if mapper is None:
-            mapper = DatasetMapper(
-                cfg=cfg,
-                is_train=True,
-            )
+    """
 
+    @classmethod
+    def build_train_loader(cls, cfg: CfgNode):
+        aug = detection_utils.build_augmentation(cfg, is_train=cls.is_train)
+        if cls.is_train:
+            aug.extend(
+                [
+                    T.RandomContrast(0.9, 1.1),
+                    T.RandomFlip(0.5, horizontal=False, vertical=True),
+                ]
+            )
+        mapper = DatasetMapper(cfg, cls.is_train, augmentations=aug)
         return build_detection_train_loader(cfg, mapper=mapper)
 
     @classmethod
     def build_lr_schedule(cls, cfg: CfgNode, optim: Optimizer):
-        return build_d2_lr_schedule(cfg, optimizer)
+        return build_d2_lr_scheduler(cfg, optim)
 
+    """
     @classmethod
     def build_augmentation(cls, cfg: CfgNode, is_train: bool = True):
         result = detection_utils.build_augmentation(cfg, is_train=is_train)
+        if is_train:
+            return
+
         return result
+    """
 
 
 def add_mask_rcnn_config(cfg, args):
     cfg.OUTPUT_DIR = args.output_dir
 
     try:
+        assert args.weights is not None
         cfg.MODEL.WEIGHTS = args.weights
-    except AttributeError as e:
+    except (AttributeError, AssertionError) as e:
         print('Not weight provided: ', e)
 
 
@@ -165,6 +182,7 @@ def setup(args) -> CfgNode:
 
 def main(args):
     cfg = setup(args)
+    """
     register_datasets(
         [
             args.root,
@@ -178,6 +196,7 @@ def main(args):
         cfg.DATASETS.TEST,
         is_train=False,
     )
+    """
 
     trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
@@ -190,11 +209,14 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', required=True, type=str)
     parser.add_argument('--num_gpus', required=False, type=int, default=1)
     parser.add_argument('--weights', required=False, type=str, default=None)
+    parser.add_argument('--json', required=False, default='trainval.json')
     args = parser.parse_args()
-    print(args)
+
+    register_coco_instances('broccoli', {}, args.json, args.root)
 
     train = True
     if train:
         launch(main, args.num_gpus, args=(args,))
     else:
         main(args=args)
+
