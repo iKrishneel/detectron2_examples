@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 
-import os
 import time
-import logging
 from collections import Counter
 from dataclasses import dataclass
-from typing import Collection
 
 import torch
 from torch.optim import Optimizer
@@ -18,40 +15,13 @@ from detectron2.engine import (
     default_setup,
     launch,
 )
-from detectron2.data import (
-    detection_utils,
-    DatasetCatalog,
-    MetadataCatalog,
-    DatasetMapper
-)
+from detectron2.data import detection_utils, DatasetMapper
 from detectron2.data.build import build_detection_train_loader
 from detectron2.solver import build_lr_scheduler as build_d2_lr_scheduler
 from detectron2.engine.defaults import AMPTrainer
 
 from detectron2.data import transforms as T
 from detectron2.data.datasets import register_coco_instances
-
-
-"""
-def register_dataset(
-    dataset_root: str, dataset_name: str, is_train: bool = True
-):
-    DatasetCatalog.register(
-        dataset_name, LabelMeDataset(root=dataset_root, is_train=is_train)
-    )
-    MetadataCatalog.get(dataset_name).set(
-        thing_classes=['broccoli'], thing_color=[(0, 255, 0)]
-    )
-
-
-def register_datasets(
-    dataset_roots: Collection[str],
-    dataset_names: Collection[str],
-    is_train: bool = True,
-):
-    for dataset_root, dataset_name in zip(dataset_roots, dataset_names):
-        register_dataset(dataset_root, dataset_name, is_train=is_train)
-"""
 
 
 class AccumGradAMPTrainer(AMPTrainer):
@@ -63,16 +33,8 @@ class AccumGradAMPTrainer(AMPTrainer):
         self._accumulate = accumulate
 
     def run_step(self):
-        cls_name = self.__class__.__name__
-
-        assert (
-            self.model.training,
-            f'[{cls_name}] model was changed to eval mode!'
-        )
-        assert (
-            torch.cuda.is_available(),
-            f'[{cls_name}] CUDA is required for AMP Training'
-        )
+        assert self.model.training, 'model was changed to eval mode!'
+        assert torch.cuda.is_available(), 'CUDA is required for AMP Training'
 
         start = time.perf_counter()
         data_time = time.perf_counter() - start
@@ -118,21 +80,6 @@ class Trainer(DefaultTrainer):
         assert self.cfg
         super(Trainer, self).__init__(self.cfg)
 
-        """
-        self._trainer = AccumGradAMPTrainer(
-            accumulate=5,
-            model=self.model,
-            data_loader=self.data_loader,
-            optimizer=self.optimizer
-        )
-        """
-
-    """
-    def run_step(self):
-        self._trainer.iter = self.iter
-        self._trainer.run_step()
-    """
-
     @classmethod
     def build_train_loader(cls, cfg: CfgNode):
         aug = detection_utils.build_augmentation(cfg, is_train=cls.is_train)
@@ -149,16 +96,6 @@ class Trainer(DefaultTrainer):
     @classmethod
     def build_lr_schedule(cls, cfg: CfgNode, optim: Optimizer):
         return build_d2_lr_scheduler(cfg, optim)
-
-    """
-    @classmethod
-    def build_augmentation(cls, cfg: CfgNode, is_train: bool = True):
-        result = detection_utils.build_augmentation(cfg, is_train=is_train)
-        if is_train:
-            return
-
-        return result
-    """
 
 
 def add_mask_rcnn_config(cfg, args):
@@ -182,22 +119,6 @@ def setup(args) -> CfgNode:
 
 def main(args):
     cfg = setup(args)
-    """
-    register_datasets(
-        [
-            args.root,
-        ],
-        cfg.DATASETS.TRAIN,
-    )
-    register_datasets(
-        [
-            args.root,
-        ],
-        cfg.DATASETS.TEST,
-        is_train=False,
-    )
-    """
-
     trainer = Trainer(cfg)
     trainer.resume_or_load(resume=args.resume)
     return trainer.train()
@@ -210,13 +131,14 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpus', required=False, type=int, default=1)
     parser.add_argument('--weights', required=False, type=str, default=None)
     parser.add_argument('--json', required=False, default='trainval.json')
+    parser.add_argument('--name', required=False, default=None, type=str)
     args = parser.parse_args()
 
-    register_coco_instances('broccoli', {}, args.json, args.root)
+    if args.name is not None:
+        register_coco_instances(args.name, {}, args.json, args.root)
 
     train = True
     if train:
         launch(main, args.num_gpus, args=(args,))
     else:
         main(args=args)
-
